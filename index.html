@@ -508,13 +508,35 @@ function launch() {
 }
 
 /* yes */
-let timer = 0, startedAt = 0;
+let timer = 0, startedAt = 0, notified = false;
+
+/* email alert when she says yes (uses web3forms.com; paste your access key between the quotes) */
+const NOTIFY_KEY = "7e32ee30-b3c5-4f25-af41-f144aa659fe5";
+function notify() {
+  if (!NOTIFY_KEY || notified) return;
+  notified = true;
+  const when = new Date().toLocaleString("th-TH", { dateStyle: "long", timeStyle: "medium", timeZone: "Asia/Bangkok" });
+  try {
+    fetch("https://api.web3forms.com/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        access_key: NOTIFY_KEY,
+        subject: "เขาตอบตกลงแล้ว!",
+        from_name: "เว็บขอเป็นแฟน",
+        message: "เขากดปุ่ม \"ได้สิ\" แล้ว\nเวลา: " + when + "\nกดปุ่มไม่เอาไปทั้งหมด: " + tries + " ครั้ง"
+      }),
+      keepalive: true
+    }).catch(function () {});
+  } catch (e) {}
+}
 function fmt(sec) {
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
   return (h ? h + " ชั่วโมง " : "") + (h || m ? m + " นาที " : "") + s + " วินาที";
 }
 yes.addEventListener("click", () => {
   startedAt = Date.now();
+  notify();
   ask.hidden = true;
   done.hidden = false;
   $("since").textContent = new Date().toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" });

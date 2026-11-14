@@ -1,5 +1,10 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
-<title>give it to you</title>
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>มีอะไรจะบอก</title>
+<meta property="og:title" content="มีอะไรจะบอก">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mali:wght@500;700&family=Prompt:wght@400;500&display=swap">
 <style>
@@ -177,6 +182,33 @@ mark { background: linear-gradient(transparent 62%, var(--chip) 62%); color: var
 .note { margin: 0 0 1rem; color: var(--muted); font-size: 0.9375rem; }
 .ghost { font-size: 0.9375rem; padding: 0.55em 1.3em; background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
 
+.music {
+  position: fixed;
+  z-index: 25;
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  right: max(16px, env(safe-area-inset-right, 0px));
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 1rem 0 0.8rem;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--accent);
+  font: 500 0.875rem var(--font-body);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.music.ready { display: inline-flex; }
+.music:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+.music svg { width: 22px; height: 22px; flex: none; }
+.music .slash { display: none; }
+.music[aria-pressed="false"] .slash { display: inline; }
+.ytwrap { position: fixed; left: 0; bottom: 0; width: 1px; height: 1px; overflow: hidden; opacity: 0.01; pointer-events: none; }
+
 #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 30; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -194,6 +226,11 @@ mark { background: linear-gradient(transparent 62%, var(--chip) 62%); color: var
 <div class="hearts" id="hearts" aria-hidden="true"></div>
 <div class="garden" id="garden" aria-hidden="true"></div>
 <canvas id="confetti" aria-hidden="true"></canvas>
+<button class="music" id="music" type="button" aria-pressed="false" aria-label="เปิดหรือปิดเพลง">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/><line class="slash" x1="3" y1="3" x2="21" y2="21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+  <span id="musicLabel">เปิดเพลง</span>
+</button>
+<div class="ytwrap" aria-hidden="true"><div id="yt"></div></div>
 
 <main>
   <section class="card" id="ask">
@@ -308,6 +345,52 @@ const ask = $("ask"), done = $("done"), yes = $("yes"), no = $("no"), slot = $("
   }
   decorate(ask);
   decorate(done);
+})();
+
+/* music: YouTube player (sound only), started by the first tap; the button hides itself if the video cannot load */
+(function () {
+  const VIDEO_ID = "lWhygAYsPrc";
+  const START = 116, END = 166; /* 1:56 to 2:46, in seconds */
+  const btn = $("music"), label = $("musicLabel");
+  let player = null, ready = false, wantPlay = false;
+  function paint(on) {
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    label.textContent = on ? "ปิดเพลง" : "เปิดเพลง";
+  }
+  function play() { wantPlay = true; if (ready) { try { player.playVideo(); } catch (e) {} } }
+  function pause() { wantPlay = false; if (ready) { try { player.pauseVideo(); } catch (e) {} } }
+  window.onYouTubeIframeAPIReady = function () {
+    const vars = { playsinline: 1, controls: 0, disablekb: 1, fs: 0, rel: 0, modestbranding: 1, start: START, end: END };
+    if (location.protocol === "http:" || location.protocol === "https:") vars.origin = location.origin;
+    player = new YT.Player("yt", {
+      width: "200", height: "200", videoId: VIDEO_ID, playerVars: vars,
+      events: {
+        onReady: function () { ready = true; player.setVolume(70); btn.classList.add("ready"); if (wantPlay) player.playVideo(); },
+        onStateChange: function (e) {
+          if (e.data === 1) paint(true);
+          else if (e.data === 2) paint(false);
+          else if (e.data === 0) { player.seekTo(START, true); player.playVideo(); }
+        },
+        onError: function () { btn.classList.remove("ready"); }
+      }
+    });
+  };
+  const s = document.createElement("script");
+  s.src = "https://www.youtube.com/iframe_api";
+  s.onerror = function () { btn.classList.remove("ready"); };
+  document.head.appendChild(s);
+  btn.addEventListener("click", function () {
+    if (wantPlay) { pause(); paint(false); } else { play(); paint(true); }
+  });
+  function first(e) {
+    removeEventListener("pointerdown", first, true);
+    removeEventListener("keydown", first, true);
+    if (btn.contains(e.target)) return;
+    play();
+    paint(true);
+  }
+  addEventListener("pointerdown", first, true);
+  addEventListener("keydown", first, true);
 })();
 
 /* the "no" button */
@@ -454,4 +537,4 @@ $("again").addEventListener("click", () => {
 });
 </script>
 
-</body></html>
+</html>
